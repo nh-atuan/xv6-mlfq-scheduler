@@ -787,3 +787,80 @@ procdump(void)
     printf("\n");
   }
 }
+
+// Get information about all processes for MLFQ visualization
+// Copies process info to user-provided address
+int
+getprocinfo(uint64 addr)
+{
+  struct proc *p;
+  struct proc *myp = myproc();
+  int i = 0;
+  
+  // Structure to hold one process's info (matches user-space struct)
+  struct {
+    int inuse;
+    int pid;
+    int priority;
+    int state;
+    int ticks_used;
+    int ticks_total;
+    char name[16];
+  } pinfo;
+
+  for(p = proc; p < &proc[NPROC]; p++, i++){
+    acquire(&p->lock);
+    
+    if(p->state == UNUSED){
+      pinfo.inuse = 0;
+      pinfo.pid = 0;
+      pinfo.priority = 0;
+      pinfo.state = 0;
+      pinfo.ticks_used = 0;
+      pinfo.ticks_total = 0;
+      pinfo.name[0] = 0;
+    } else {
+      pinfo.inuse = 1;
+      pinfo.pid = p->pid;
+      pinfo.priority = p->priority;
+      pinfo.state = p->state;
+      pinfo.ticks_used = p->ticks_used;
+      pinfo.ticks_total = p->ticks_total;
+      memmove(pinfo.name, p->name, sizeof(pinfo.name));
+    }
+    
+    release(&p->lock);
+    
+    // Copy this process's info to user space
+    if(copyout(myp->pagetable, addr + i * sizeof(pinfo), 
+               (char*)&pinfo, sizeof(pinfo)) < 0)
+      return -1;
+  }
+  
+  return 0;
+}
+
+// Set priority for a process (by pid)
+// Returns 0 on success, -1 on failure
+int
+setprocpriority(int pid, int priority)
+{
+  struct proc *p;
+  
+  // Validate priority (0, 1, or 2)
+  if(priority < 0 || priority > 2)
+    return -1;
+  
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->pid == pid && p->state != UNUSED){
+      p->priority = priority;
+      p->ticks_used = 0;  // Reset ticks for new priority
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  
+  return -1;  // Process not found
+}

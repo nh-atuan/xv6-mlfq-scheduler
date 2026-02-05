@@ -191,6 +191,8 @@ UPROGS=\
 	$U/_cpu_bound\
 	$U/_io_bound\
 	$U/_schedtest\
+	$U/_pstat\
+	$U/_setpri\
 
 
 
