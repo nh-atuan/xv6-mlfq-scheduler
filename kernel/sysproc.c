@@ -91,3 +91,22 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// Get process information for MLFQ scheduler visualization
+uint64
+sys_getpinfo(void)
+{
+  uint64 addr;
+  argaddr(0, &addr);
+  return getprocinfo(addr);
+}
+
+// Set priority for a process
+uint64
+sys_setpriority(void)
+{
+  int pid, priority;
+  argint(0, &pid);
+  argint(1, &priority);
+  return setprocpriority(pid, priority);
+}
