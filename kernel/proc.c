@@ -570,23 +570,16 @@ sched(void)
 }
 
 // Give up the CPU for one scheduling round.
-// MLFQ: Update ticks and demote priority if time slice exhausted
+// MLFQ: Demote priority if time slice exhausted (tick counting happens in trap.c)
 void
 yield(void)
 {
   struct proc *p = myproc();
   acquire(&p->lock);
   
-  // Update MLFQ tick counters
-  p->ticks_used++;
-  p->ticks_total++;
-  
-  // Update global tick counter for priority boost
-  acquire(&mlfq_lock);
-  mlfq_ticks++;
-  release(&mlfq_lock);
-  
   // Check if process has used up its time slice
+  // NOTE: ticks_used is incremented in mlfq_check_timer() (trap.c) 
+  // ONLY on timer interrupts, not on voluntary yields
   int time_slice = get_time_slice(p->priority);
   if(p->ticks_used >= time_slice) {
     // Demote to lower priority queue (if not already at lowest)
@@ -663,7 +656,6 @@ sleep(void *chan, struct spinlock *lk)
 
 // Wake up all processes sleeping on chan.
 // Must be called without any p->lock.
-// MLFQ: Boost priority for I/O-bound processes when they wake up
 void
 wakeup(void *chan)
 {
@@ -674,11 +666,15 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
-        // MLFQ: I/O-bound processes get priority boost when waking
-        // Move up one priority level (if not already at highest)
-        if(p->priority > 0) {
-          p->priority--;
-        }
+        // MLFQ: Process keeps its priority when waking up (MLFQ Rule 4b)
+        // Priority should only change via time slice expiration (demotion)
+        // or periodic boost (anti-starvation), not on wakeup
+        
+        // REMOVED: Non-standard priority boost on wakeup
+        // This was not part of original MLFQ specification and could be gamed
+        // if(p->priority > 0) {
+        //   p->priority--;
+        // }
       }
       release(&p->lock);
     }

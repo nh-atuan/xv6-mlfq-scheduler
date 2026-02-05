@@ -9,6 +9,10 @@
 struct spinlock tickslock;
 uint ticks;
 
+// MLFQ: External declarations for MLFQ global state
+extern uint64 mlfq_ticks;
+extern struct spinlock mlfq_lock;
+
 extern char trampoline[], uservec[], userret[];
 
 // in kernelvec.S, calls kerneltrap().
@@ -27,6 +31,25 @@ void
 trapinithart(void)
 {
   w_stvec((uint64)kernelvec);
+}
+
+// MLFQ: Handle timer interrupt - increment tick counters
+// This should only be called when a timer interrupt occurs (which_dev == 2)
+void
+mlfq_check_timer(void)
+{
+  struct proc *p = myproc();
+  if(p != 0) {
+    acquire(&p->lock);
+    p->ticks_used++;
+    p->ticks_total++;
+    release(&p->lock);
+    
+    // Update global tick counter for priority boost
+    acquire(&mlfq_lock);
+    mlfq_ticks++;
+    release(&mlfq_lock);
+  }
 }
 
 //
@@ -77,8 +100,10 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2) {
+    mlfq_check_timer();  // MLFQ: Increment tick counters BEFORE yielding
     yield();
+  }
 
   usertrapret();
 }
@@ -151,8 +176,10 @@ kerneltrap()
   }
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING) {
+    mlfq_check_timer();  // MLFQ: Increment tick counters BEFORE yielding
     yield();
+  }
 
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.
