@@ -193,6 +193,8 @@ UPROGS=\
 	$U/_schedtest\
 	$U/_pstat\
 	$U/_setpri\
+	$U/_mlfqmon\
+	$U/_demo\
 
 
 
