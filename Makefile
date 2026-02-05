@@ -188,6 +188,9 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
+	$U/_cpu_bound\
+	$U/_io_bound\
+	$U/_schedtest\
 
 
 
