@@ -15,6 +15,10 @@ struct proc *initproc;
 int nextpid = 1;
 struct spinlock pid_lock;
 
+// MLFQ global state
+uint64 mlfq_ticks = 0;           // Global tick counter for priority boost
+struct spinlock mlfq_lock;       // Lock for MLFQ global state
+
 extern void forkret(void);
 static void freeproc(struct proc *p);
 
@@ -51,6 +55,7 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+  initlock(&mlfq_lock, "mlfq");  // Initialize MLFQ lock
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
@@ -146,6 +151,12 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  // Initialize MLFQ fields - new process starts at highest priority
+  p->priority = 0;
+  p->ticks_used = 0;
+  p->ticks_total = 0;
+  p->last_run_time = 0;
+
   return p;
 }
 
@@ -169,6 +180,11 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  // Reset MLFQ fields
+  p->priority = 0;
+  p->ticks_used = 0;
+  p->ticks_total = 0;
+  p->last_run_time = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -441,11 +457,42 @@ wait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+
+// Get time slice for a given priority level
+static int
+get_time_slice(int priority)
+{
+  switch(priority) {
+    case 0: return MLFQ_TICKS_0;
+    case 1: return MLFQ_TICKS_1;
+    case 2: return MLFQ_TICKS_2;
+    default: return MLFQ_TICKS_2;
+  }
+}
+
+// Priority boost: move all processes to highest priority queue
+// Called periodically to prevent starvation
+static void
+priority_boost(void)
+{
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state != UNUSED) {
+      p->priority = 0;
+      p->ticks_used = 0;
+    }
+    release(&p->lock);
+  }
+}
+
 void
 scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+  int priority;
+  struct proc *selected;
 
   c->proc = 0;
   for(;;){
@@ -454,21 +501,43 @@ scheduler(void)
     // processes are waiting.
     intr_on();
 
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+    // Check for priority boost
+    acquire(&mlfq_lock);
+    if(mlfq_ticks >= BOOST_INTERVAL) {
+      mlfq_ticks = 0;
+      release(&mlfq_lock);
+      priority_boost();
+    } else {
+      release(&mlfq_lock);
+    }
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
+    // MLFQ: Find highest priority runnable process
+    // Search from queue 0 (highest) to NMLFQ-1 (lowest)
+    selected = 0;
+    for(priority = 0; priority < NMLFQ && selected == 0; priority++) {
+      for(p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if(p->state == RUNNABLE && p->priority == priority) {
+          // Found a runnable process at this priority level
+          selected = p;
+          break;
+        }
+        release(&p->lock);
       }
-      release(&p->lock);
+    }
+
+    if(selected) {
+      // Switch to chosen process. It is the process's job
+      // to release its lock and then reacquire it
+      // before jumping back to us.
+      selected->state = RUNNING;
+      c->proc = selected;
+      swtch(&c->context, &selected->context);
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      c->proc = 0;
+      release(&selected->lock);
     }
   }
 }
@@ -501,11 +570,32 @@ sched(void)
 }
 
 // Give up the CPU for one scheduling round.
+// MLFQ: Update ticks and demote priority if time slice exhausted
 void
 yield(void)
 {
   struct proc *p = myproc();
   acquire(&p->lock);
+  
+  // Update MLFQ tick counters
+  p->ticks_used++;
+  p->ticks_total++;
+  
+  // Update global tick counter for priority boost
+  acquire(&mlfq_lock);
+  mlfq_ticks++;
+  release(&mlfq_lock);
+  
+  // Check if process has used up its time slice
+  int time_slice = get_time_slice(p->priority);
+  if(p->ticks_used >= time_slice) {
+    // Demote to lower priority queue (if not already at lowest)
+    if(p->priority < NMLFQ - 1) {
+      p->priority++;
+    }
+    p->ticks_used = 0;  // Reset ticks for new priority level
+  }
+  
   p->state = RUNNABLE;
   sched();
   release(&p->lock);
@@ -537,6 +627,7 @@ forkret(void)
 
 // Atomically release lock and sleep on chan.
 // Reacquires lock when awakened.
+// MLFQ: Process going to sleep is likely I/O-bound, reset ticks
 void
 sleep(void *chan, struct spinlock *lk)
 {
@@ -551,6 +642,10 @@ sleep(void *chan, struct spinlock *lk)
 
   acquire(&p->lock);  //DOC: sleeplock1
   release(lk);
+
+  // MLFQ: Process voluntarily gave up CPU before time slice expired
+  // This indicates I/O-bound behavior, so reset ticks (no demotion)
+  p->ticks_used = 0;
 
   // Go to sleep.
   p->chan = chan;
@@ -568,6 +663,7 @@ sleep(void *chan, struct spinlock *lk)
 
 // Wake up all processes sleeping on chan.
 // Must be called without any p->lock.
+// MLFQ: Boost priority for I/O-bound processes when they wake up
 void
 wakeup(void *chan)
 {
@@ -578,6 +674,11 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
+        // MLFQ: I/O-bound processes get priority boost when waking
+        // Move up one priority level (if not already at highest)
+        if(p->priority > 0) {
+          p->priority--;
+        }
       }
       release(&p->lock);
     }

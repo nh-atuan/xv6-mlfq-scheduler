@@ -11,3 +11,10 @@
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       2000  // size of file system in blocks
 #define MAXPATH      128   // maximum file path name
+
+// MLFQ Scheduler parameters
+#define NMLFQ        3     // number of priority queues (0=highest, 2=lowest)
+#define MLFQ_TICKS_0 1     // time slice for queue 0 (highest priority)
+#define MLFQ_TICKS_1 2     // time slice for queue 1 (medium priority)
+#define MLFQ_TICKS_2 4     // time slice for queue 2 (lowest priority)
+#define BOOST_INTERVAL 100 // ticks before priority boost (anti-starvation)
