@@ -190,7 +190,6 @@ UPROGS=\
 	$U/_mlfqmon\
 	$U/_test_pstat\
 	$U/_monitor\
-	$U/_mlfq_test\
 
 
 
