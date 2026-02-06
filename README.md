@@ -54,7 +54,11 @@ Dự án này mở rộng hệ điều hành xv6 (RISC-V) bằng cách thay th�
 | `user/pstat.c` | Hiển thị thống kê scheduler (bảng tiến trình với priority, ticks) |
 | `user/setpri.c` | Đặt priority thủ công cho process: `setpri <pid> <priority>` |
 | `user/mlfqmon.c` | Monitor real-time: hiển thị trạng thái hàng đợi MLFQ liên tục |
+| `user/monitor.c` | **[feature/web-UI]** TUI monitor nâng cao với ANSI colors, hiển thị chi tiết queue và process table |
+| `user/mlfq_test.c` | **[feature/web-UI]** Bộ test MLFQ toàn diện với nhiều test case |
+| `user/test_pstat.c` | **[feature/web-UI]** Test cho syscall getpinfo |
 | `user/demo.c` | Chương trình demo tạo mixed workload để quan sát MLFQ |
+| `kernel/pstat.h` | **[feature/web-UI]** Header định nghĩa cấu trúc dữ liệu cho process info |
 
 ### Nhánh phát triển (Branches)
 
@@ -65,7 +69,7 @@ Dự án này mở rộng hệ điều hành xv6 (RISC-V) bằng cách thay th�
 | `feature/syscalls` | PR #3: Thêm system calls (getpinfo, setpriority) |
 | `feature/test-programs` | PR #2: Các chương trình test |
 | `feature/visualization` | PR #4: Terminal-based visualization (mlfqmon) |
-| `feature/web-UI` | (Đang phát triển) TUI monitor với ANSI colors + các test bổ sung |
+| `feature/web-UI` | TUI monitor với ANSI colors (`monitor.c`), test bổ sung (`mlfq_test.c`, `test_pstat.c`), tài liệu kỹ thuật (`TECHNICAL_DESIGN.md`, `TESTING_GUIDE.md`, `MLFQ_README.md`), script test (`quick_test.sh`) |
 
 ---
 

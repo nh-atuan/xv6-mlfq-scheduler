@@ -8,6 +8,7 @@
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{listings}
+\usepackage{listingsutf8}
 \usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{geometry}
@@ -49,7 +50,23 @@
     tabsize=2,
     language=C,
     frame=single,
-    rulecolor=\color{black!30}
+    rulecolor=\color{black!30},
+    extendedchars=true,
+    inputencoding=utf8,
+    literate=
+        {á}{{\'{a}}}1 {à}{{\`{a}}}1 {ả}{{\h{a}}}1 {ã}{{\~{a}}}1 {ạ}{{\d{a}}}1
+        {ă}{{\u{a}}}1 {ắ}{{\'{\u{a}}}}1 {ằ}{{\`{\u{a}}}}1 {ẳ}{{\h{\u{a}}}}1 {ẵ}{{\~{\u{a}}}}1 {ặ}{{\d{\u{a}}}}1
+        {â}{{\^{a}}}1 {ấ}{{\'{\^{a}}}}1 {ầ}{{\`{\^{a}}}}1 {ẩ}{{\h{\^{a}}}}1 {ẫ}{{\~{\^{a}}}}1 {ậ}{{\d{\^{a}}}}1
+        {é}{{\'{e}}}1 {è}{{\`{e}}}1 {ẻ}{{\h{e}}}1 {ẽ}{{\~{e}}}1 {ẹ}{{\d{e}}}1
+        {ê}{{\^{e}}}1 {ế}{{\'{\^{e}}}}1 {ề}{{\`{\^{e}}}}1 {ể}{{\h{\^{e}}}}1 {ễ}{{\~{\^{e}}}}1 {ệ}{{\d{\^{e}}}}1
+        {í}{{\'{i}}}1 {ì}{{\`{i}}}1 {ỉ}{{\h{i}}}1 {ĩ}{{\~{i}}}1 {ị}{{\d{i}}}1
+        {ó}{{\'{o}}}1 {ò}{{\`{o}}}1 {ỏ}{{\h{o}}}1 {õ}{{\~{o}}}1 {ọ}{{\d{o}}}1
+        {ô}{{\^{o}}}1 {ố}{{\'{\^{o}}}}1 {ồ}{{\`{\^{o}}}}1 {ổ}{{\h{\^{o}}}}1 {ỗ}{{\~{\^{o}}}}1 {ộ}{{\d{\^{o}}}}1
+        {ơ}{{\horn{o}}}1 {ớ}{{\'{\horn{o}}}}1 {ờ}{{\`{\horn{o}}}}1 {ở}{{\h{\horn{o}}}}1 {ỡ}{{\~{\horn{o}}}}1 {ợ}{{\d{\horn{o}}}}1
+        {ú}{{\'{u}}}1 {ù}{{\`{u}}}1 {ủ}{{\h{u}}}1 {ũ}{{\~{u}}}1 {ụ}{{\d{u}}}1
+        {ư}{{\horn{u}}}1 {ứ}{{\'{\horn{u}}}}1 {ừ}{{\`{\horn{u}}}}1 {ử}{{\h{\horn{u}}}}1 {ữ}{{\~{\horn{u}}}}1 {ự}{{\d{\horn{u}}}}1
+        {ý}{{\'{y}}}1 {ỳ}{{\`{y}}}1 {ỷ}{{\h{y}}}1 {ỹ}{{\~{y}}}1 {ỵ}{{\d{y}}}1
+        {đ}{{\dj}}1 {Đ}{{\DJ}}1
 }
 \lstset{style=cstyle}
 
@@ -74,6 +91,7 @@
 \textbf{\large KHOA CÔNG NGHỆ THÔNG TIN}\\[0.5cm]
 
 \includegraphics[width=0.3\textwidth]{hcmus-logo.png}\\[1cm]
+\vspace{2cm}
 
 \vspace{1cm}
 \rule{\textwidth}{1pt}\\[0.5cm]
@@ -83,10 +101,10 @@
 {\Large Đồ án môn học: \textbf{Hệ Điều Hành}}\\[2cm]
 
 \begin{tabular}{ll}
-\textbf{Sinh viên thực hiện:} & (Điền tên thành viên 1) -- (MSSV) \\
-                               & (Điền tên thành viên 2) -- (MSSV) \\
-                               & (Điền tên thành viên 3) -- (MSSV) \\[0.5cm]
-\textbf{Giảng viên hướng dẫn:} & (Điền tên GVHD) \\
+\textbf{Sinh viên thực hiện:} & Lê Xuân Trí -- 23120099 \\
+                               & Trần Hữu Kim Thành -- 23120166 \\
+                               & Nguyễn Hồ Anh Tuấn -- 23120185 \\[0.5cm]
+\textbf{Giảng viên hướng dẫn:} & Lê Giang Thanh\\
 \end{tabular}
 
 \vfill
@@ -297,18 +315,19 @@ Queue 2 & Thấp nhất & 4 ticks (\texttt{MLFQ\_TICKS\_2}) & Tiến trình CPU-
 Cấu trúc \texttt{struct proc} (trong \texttt{kernel/proc.h}) được mở rộng với các trường MLFQ:
 
 \begin{lstlisting}[caption={Các trường MLFQ trong struct proc}]
-// MLFQ scheduler fields
-int priority;       // Queue hiện tại (0=cao nhất, NMLFQ-1=thấp nhất)
-int ticks_used;     // Số ticks đã dùng trong time slice hiện tại
-int ticks_total;    // Tổng ticks đã dùng (thống kê)
-uint64 last_run_time; // Thời điểm chạy lần cuối
+// Các trường MLFQ scheduler
+int priority;         // Hàng đợi ưu tiên hiện tại (0=cao nhất, NMLFQ-1=thấp nhất)
+int ticks_used;       // Số ticks đã dùng trong time slice hiện tại
+int ticks_total;      // Tổng số ticks đã dùng (thống kê)
+uint64 last_run_time; // Thời điểm tiến trình được lập lịch lần cuối
 \end{lstlisting}
 
 \subsubsection{Biến toàn cục MLFQ}
 
 \begin{lstlisting}[caption={Biến toàn cục MLFQ trong proc.c}]
-uint64 mlfq_ticks = 0;      // Bộ đếm tick toàn cục cho priority boost
-struct spinlock mlfq_lock;   // Lock bảo vệ mlfq_ticks
+// Trạng thái toàn cục MLFQ
+uint64 mlfq_ticks = 0;       // Bộ đếm tick toàn cục cho priority boost
+struct spinlock mlfq_lock;   // Lock bảo vệ trạng thái MLFQ
 \end{lstlisting}
 
 \textbf{Ghi chú về cách tổ chức queue:} Thay vì dùng danh sách liên kết riêng cho từng queue, thiết kế sử dụng trường \texttt{priority} trong mỗi \texttt{struct proc} để xác định queue. Scheduler duyệt bảng \texttt{proc[NPROC]} và lọc theo priority. Cách tiếp cận này đơn giản, phù hợp với quy mô nhỏ của xv6 (\texttt{NPROC = 64}).
@@ -320,27 +339,31 @@ struct spinlock mlfq_lock;   // Lock bảo vệ mlfq_ticks
 Khi tiến trình dùng hết time quantum tại mức ưu tiên hiện tại, nó bị demote xuống queue thấp hơn. Logic nằm trong hàm \texttt{yield()}:
 
 \begin{lstlisting}[caption={Logic demotion trong yield()}]
+// Nhường CPU cho một vòng lập lịch.
+// MLFQ: Cập nhật ticks và hạ ưu tiên nếu hết time slice
 void yield(void) {
   struct proc *p = myproc();
   acquire(&p->lock);
-
+  
+  // Cập nhật bộ đếm ticks MLFQ
   p->ticks_used++;
   p->ticks_total++;
-
-  // Cập nhật bộ đếm toàn cục cho priority boost
+  
+  // Cập nhật bộ đếm tick toàn cục cho priority boost
   acquire(&mlfq_lock);
   mlfq_ticks++;
   release(&mlfq_lock);
-
-  // Kiểm tra đã dùng hết time slice chưa
+  
+  // Kiểm tra tiến trình đã dùng hết time slice chưa
   int time_slice = get_time_slice(p->priority);
   if(p->ticks_used >= time_slice) {
-    // Demote xuống queue thấp hơn
-    if(p->priority < NMLFQ - 1)
+    // Hạ xuống queue ưu tiên thấp hơn (nếu chưa ở thấp nhất)
+    if(p->priority < NMLFQ - 1) {
       p->priority++;
-    p->ticks_used = 0;
+    }
+    p->ticks_used = 0;  // Reset ticks cho mức ưu tiên mới
   }
-
+  
   p->state = RUNNABLE;
   sched();
   release(&p->lock);
@@ -352,34 +375,46 @@ void yield(void) {
 Tiến trình yield sớm (trước khi hết quantum) -- thường do I/O -- không bị demote. Trong hàm \texttt{sleep()}, \texttt{ticks\_used} được reset:
 
 \begin{lstlisting}[caption={Reset ticks khi sleep (I/O behavior)}]
+// Giải phóng lock và sleep trên channel.
+// MLFQ: Tiến trình đi sleep thường là I/O-bound, reset ticks
 void sleep(void *chan, struct spinlock *lk) {
   struct proc *p = myproc();
-  acquire(&p->lock);
+  
+  acquire(&p->lock);  //DOC: sleeplock1
   release(lk);
 
-  // I/O-bound: yield sớm, reset ticks (không bị demote)
+  // MLFQ: Tiến trình tự nguyện nhường CPU trước khi hết time slice
+  // Điều này cho thấy hành vi I/O-bound, nên reset ticks (không bị demote)
   p->ticks_used = 0;
 
+  // Đi vào trạng thái ngủ
   p->chan = chan;
   p->state = SLEEPING;
   sched();
-  // ...
+  // ... (dọn dẹp và lấy lại lock ban đầu)
 }
 \end{lstlisting}
 
 Khi tiến trình I/O-bound wake up, nó được boost lên 1 mức ưu tiên (trong hàm \texttt{wakeup()}):
 
 \begin{lstlisting}[caption={Priority boost khi wakeup}]
+// Đánh thức tất cả tiến trình đang sleep trên channel.
+// MLFQ: Tăng ưu tiên cho tiến trình I/O-bound khi thức dậy
 void wakeup(void *chan) {
+  struct proc *p;
   for(p = proc; p < &proc[NPROC]; p++) {
-    acquire(&p->lock);
-    if(p->state == SLEEPING && p->chan == chan) {
-      p->state = RUNNABLE;
-      // I/O-bound: boost lên 1 mức
-      if(p->priority > 0)
-        p->priority--;
+    if(p != myproc()){
+      acquire(&p->lock);
+      if(p->state == SLEEPING && p->chan == chan) {
+        p->state = RUNNABLE;
+        // MLFQ: Tiến trình I/O-bound được tăng ưu tiên khi thức dậy
+        // Tăng lên một mức ưu tiên (nếu chưa ở cao nhất)
+        if(p->priority > 0) {
+          p->priority--;
+        }
+      }
+      release(&p->lock);
     }
-    release(&p->lock);
   }
 }
 \end{lstlisting}
@@ -391,6 +426,8 @@ void wakeup(void *chan) {
 \textbf{Giải pháp -- Priority Boost:} Sau mỗi \texttt{BOOST\_INTERVAL = 100} ticks, tất cả tiến trình được đưa về Queue 0 (ưu tiên cao nhất) và reset \texttt{ticks\_used}:
 
 \begin{lstlisting}[caption={Cơ chế Priority Boost}]
+// Priority boost: đưa tất cả tiến trình về queue ưu tiên cao nhất
+// Được gọi định kỳ để chống starvation
 static void priority_boost(void) {
   struct proc *p;
   for(p = proc; p < &proc[NPROC]; p++) {
@@ -447,6 +484,8 @@ if(mlfq_ticks >= BOOST_INTERVAL) {
 \hline
 \texttt{kernel/defs.h} & Khai báo prototype cho \texttt{getprocinfo()}, \texttt{setprocpriority()} \\
 \hline
+\texttt{kernel/pstat.h} & Header định nghĩa cấu trúc dữ liệu cho process info \\
+\hline
 \texttt{user/user.h} & Thêm prototype \texttt{getpinfo()}, \texttt{setpriority()} \\
 \hline
 \texttt{user/usys.pl} & Thêm entry cho 2 syscall mới \\
@@ -474,12 +513,12 @@ void scheduler(void) {
   struct cpu *c = mycpu();
   int priority;
   struct proc *selected;
-  c->proc = 0;
 
-  for(;;) {
+  c->proc = 0;
+  for(;;){
     intr_on();
 
-    // 1. Priority boost check
+    // Kiểm tra priority boost
     acquire(&mlfq_lock);
     if(mlfq_ticks >= BOOST_INTERVAL) {
       mlfq_ticks = 0;
@@ -489,12 +528,14 @@ void scheduler(void) {
       release(&mlfq_lock);
     }
 
-    // 2. MLFQ: Tim process uu tien cao nhat
+    // MLFQ: Tìm tiến trình runnable có ưu tiên cao nhất
+    // Duyệt từ queue 0 (cao nhất) đến NMLFQ-1 (thấp nhất)
     selected = 0;
     for(priority = 0; priority < NMLFQ && selected == 0; priority++) {
       for(p = proc; p < &proc[NPROC]; p++) {
         acquire(&p->lock);
         if(p->state == RUNNABLE && p->priority == priority) {
+          // Tìm thấy tiến trình runnable ở mức ưu tiên này
           selected = p;
           break;
         }
@@ -503,6 +544,7 @@ void scheduler(void) {
     }
 
     if(selected) {
+      // Chuyển sang tiến trình được chọn
       selected->state = RUNNING;
       c->proc = selected;
       swtch(&c->context, &selected->context);
@@ -620,20 +662,26 @@ PID   PRIO  STATE   TICKS   TOTAL   NAME
 Total: 5 | Running: 1 | Sleeping: 2
 \end{lstlisting}
 
-\subsection{Web-based UI}
+\subsection{Terminal-based UI}
 
-\textit{(Phần này đang trong quá trình phát triển trên nhánh \texttt{feature/web-UI}. Bao gồm TUI monitor với ANSI colors và các chương trình test bổ sung. Sẽ được hoàn thiện trong giai đoạn tiếp theo.)}
+Hình \ref{fig:mlfqmon} minh họa giao diện terminal-based của chương trình \texttt{monitor} (phiên bản nâng cao của \texttt{mlfqmon}) với hỗ trợ ANSI colors, cung cấp cái nhìn trực quan về trạng thái scheduler.
 
-\subsection{Kịch bản Demo}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{mlfqmon.jpg}
+    \caption{Giao diện MLFQ Scheduler Monitor v1.0}
+    \label{fig:mlfqmon}
+\end{figure}
 
-\subsubsection{CPU-bound process}
-Chạy \texttt{cpu\_bound}: tiến trình thực hiện tính toán nặng, dùng hết quantum $\Rightarrow$ bị demote từ Queue 0 $\rightarrow$ Queue 1 $\rightarrow$ Queue 2.
+\textbf{Giải thích các thành phần:}
+\begin{itemize}
+    \item \textbf{Header:} Hiển thị tên ứng dụng, System Time (tổng số ticks), và Refresh counter.
+    \item \textbf{Queue Visualization:} Biểu diễn trực quan 3 hàng đợi (Q0-HIGH, Q1-MEDIUM, Q2-LOW) với thanh progress bar và time slice tương ứng (1, 2, 4 ticks).
+    \item \textbf{System Stats:} Thống kê tổng số tiến trình, số đang Running, Sleeping, Runnable, và thời gian còn lại đến Next Boost.
+    \item \textbf{Process Table:} Chi tiết từng tiến trình gồm PID, NAME, STATE, PRIO (priority), SLICE (time slice progress), TOTAL (tổng ticks), SCHED (số lần scheduled), DEM (demotions), BST (boosts).
+    \item \textbf{Legend:} Giải thích màu sắc và ký hiệu (* = đang chạy, màu xanh lá = HIGH, vàng = MED, đỏ = LOW).
+\end{itemize}
 
-\subsubsection{I/O-bound process}
-Chạy \texttt{io\_bound}: tiến trình sleep thường xuyên, yield sớm $\Rightarrow$ giữ nguyên ở Queue 0.
-
-\subsubsection{Mixed workload}
-Chạy \texttt{schedtest} hoặc \texttt{demo}: tạo đồng thời cả hai loại, quan sát MLFQ tự động phân biệt và ưu tiên I/O-bound.
 
 % ============================================================================
 % 6. ĐÁNH GIÁ VÀ THỰC NGHIỆM
@@ -668,6 +716,17 @@ Priority Boost & Chạy CPU-bound lâu dài & Sau 100 ticks, tất cả về Que
 \end{tabular}
 \caption{Các kịch bản thử nghiệm}
 \end{table}
+
+\textbf{Các chương trình test:}
+\begin{itemize}
+    \item \texttt{cpu\_bound}: Tiến trình tính toán nặng, thử cơ chế demotion.
+    \item \texttt{io\_bound}: Tiến trình sleep thường xuyên, thử khả năng giữ ưu tiên cao.
+    \item \texttt{schedtest}: Test tổng hợp mixed workload.
+    \item \texttt{mlfqmon}: Monitor hiển thị trạng thái scheduler theo thời gian thực.
+    \item \texttt{monitor}: TUI monitor nâng cao với ANSI colors.
+    \item \texttt{mlfq\_test}: Bộ test MLFQ toàn diện với nhiều test case.
+    \item \texttt{test\_pstat}: Test cho syscall \texttt{getpinfo()}.
+\end{itemize}
 
 \subsection{Chỉ số đánh giá}
 
@@ -732,7 +791,7 @@ Phân biệt workload & Không & Tự động \\
     \item \textbf{Gaming prevention:} Chưa xử lý trường hợp tiến trình cố tình yield ngay trước khi hết quantum để tránh bị demote.
 \end{itemize}
 
-\subsection{So sánh với scheduler thực tế}
+\subsection{So sánh với CFS của Linux}
 
 \begin{table}[H]
 \centering
