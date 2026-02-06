@@ -31,10 +31,10 @@ void test_result(char *test_name, int passed, char *reason)
   total_tests++;
   if(passed) {
     passed_tests++;
-    printf("  [✓ PASS] %s\n", test_name);
+    printf("  [PASS] %s\n", test_name);
   } else {
     failed_tests++;
-    printf("  [✗ FAIL] %s\n", test_name);
+    printf("  [FAIL] %s\n", test_name);
     if(reason)
       printf("           Reason: %s\n", reason);
   }
@@ -363,12 +363,12 @@ int main(void)
   printf("╠══════════════════════════════════════════════════════════════╣\n");
   printf("║                                                              ║\n");
   printf("║  Total Tests:   %2d                                           ║\n", total_tests);
-  printf("║  Passed:        %2d  ✓                                        ║\n", passed_tests);
-  printf("║  Failed:        %2d  ✗                                        ║\n", failed_tests);
+  printf("║  Passed:        %2d                                            ║\n", passed_tests);
+  printf("║  Failed:        %2d                                            ║\n", failed_tests);
   printf("║                                                              ║\n");
   
   if(failed_tests == 0) {
-    printf("║  Result:        ALL TESTS PASSED! 🎉                        ║\n");
+    printf("║  Result:        ALL TESTS PASSED!                           ║\n");
   } else {
     printf("║  Result:        SOME TESTS FAILED                           ║\n");
   }

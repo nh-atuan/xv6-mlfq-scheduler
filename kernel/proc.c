@@ -685,15 +685,6 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
-        // MLFQ: Process keeps its priority when waking up (MLFQ Rule 4b)
-        // Priority should only change via time slice expiration (demotion)
-        // or periodic boost (anti-starvation), not on wakeup
-        
-        // REMOVED: Non-standard priority boost on wakeup
-        // This was not part of original MLFQ specification and could be gamed
-        // if(p->priority > 0) {
-        //   p->priority--;
-        // }
       }
       release(&p->lock);
     }
