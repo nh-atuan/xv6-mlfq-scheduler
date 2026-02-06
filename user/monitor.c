@@ -45,21 +45,70 @@
 // ============================================================================
 static char *state_names[] = {
   "UNUSED",
-  "USED  ",
-  "SLEEP ",
-  "READY ",
-  "RUN   ",
+  "USED",
+  "SLEEP",
+  "READY",
+  "RUN",
   "ZOMBIE"
 };
 
-static char *state_colors[] = {
-  ANSI_DIM,      // UNUSED - dim
-  ANSI_WHITE,    // USED
-  ANSI_CYAN,     // SLEEPING - cyan
-  ANSI_YELLOW,   // RUNNABLE - yellow
-  ANSI_GREEN,    // RUNNING - green
-  ANSI_RED       // ZOMBIE - red
-};
+// ============================================================================
+// Helper Functions for Formatted Output (xv6 printf doesn't support width)
+// ============================================================================
+
+// Get number of digits in an integer
+int num_digits(int n)
+{
+  if(n == 0) return 1;
+  int count = 0;
+  if(n < 0) { n = -n; count++; }
+  while(n > 0) { count++; n /= 10; }
+  return count;
+}
+
+// Print integer right-aligned in given width
+void print_int_r(int val, int width)
+{
+  int digits = num_digits(val);
+  for(int i = 0; i < width - digits; i++)
+    printf(" ");
+  printf("%d", val);
+}
+
+// Print integer left-aligned in given width  
+void print_int_l(int val, int width)
+{
+  printf("%d", val);
+  int digits = num_digits(val);
+  for(int i = 0; i < width - digits; i++)
+    printf(" ");
+}
+
+// Get string length
+int str_len(char *s)
+{
+  int len = 0;
+  while(s[len]) len++;
+  return len;
+}
+
+// Print string left-aligned in given width
+void print_str_l(char *s, int width)
+{
+  printf("%s", s);
+  int len = str_len(s);
+  for(int i = 0; i < width - len; i++)
+    printf(" ");
+}
+
+// Print string right-aligned in given width
+void print_str_r(char *s, int width)
+{
+  int len = str_len(s);
+  for(int i = 0; i < width - len; i++)
+    printf(" ");
+  printf("%s", s);
+}
 
 // ============================================================================
 // Drawing Functions
@@ -124,28 +173,32 @@ void draw_header(int iteration, int global_ticks)
 {
   printf(ANSI_BOLD);
   printf("+");
-  draw_line(72, '-');
+  draw_line(80, '-');
   printf("+\n");
   
-  printf("|              MLFQ SCHEDULER MONITOR v1.0");
-  printf("                               |\n");
+  printf("|");
+  print_str_l("              MLFQ SCHEDULER MONITOR v1.0", 80);
+  printf("|\n");
   
-  printf("|         System Time: %d ticks", global_ticks);
-  // Padding
-  int len = 0;
-  int t = global_ticks;
-  do { len++; t /= 10; } while(t > 0);
-  for(int i = 0; i < 35 - len; i++) printf(" ");
-  printf("Refresh: #%d", iteration);
-  // More padding
-  t = iteration;
-  len = 0;
-  do { len++; t /= 10; } while(t > 0);
-  for(int i = 0; i < 8 - len; i++) printf(" ");
+  // System Time line
+  printf("|         System Time: ");
+  printf("%d", global_ticks);
+  printf(" ticks");
+  int len = num_digits(global_ticks);
+  for(int i = 0; i < 80 - 28 - len; i++) printf(" ");
+  printf("|\n");
+  
+  // Refresh line
+  printf("|");
+  for(int i = 0; i < 56; i++) printf(" ");
+  printf("Refresh: #");
+  printf("%d", iteration);
+  len = num_digits(iteration);
+  for(int i = 0; i < 80 - 67 - len; i++) printf(" ");
   printf("|\n");
   
   printf("+");
-  draw_line(72, '-');
+  draw_line(80, '-');
   printf("+\n");
   printf(ANSI_RESET);
 }
@@ -196,79 +249,100 @@ void draw_queue_section(struct pstat *ps)
 void draw_process_table(struct pstat *ps)
 {
   printf("+");
-  draw_line(72, '-');
+  draw_line(80, '-');
   printf("+\n");
   
-  printf(ANSI_BOLD);
+  printf(ANSI_BOLD ANSI_WHITE);
   printf("  PROCESS TABLE\n");
   printf(ANSI_RESET);
   printf("  ");
   draw_line(13, '=');
   printf("\n\n");
   
-  // Header
-  printf(ANSI_BOLD);
-  printf("  PID  PPID  NAME         STATE   PRIO  SLICE   TOTAL  SCHED  DEM  BST\n");
+  // Header - Bold White
+  printf(ANSI_BOLD ANSI_WHITE);
+  printf("  PID  | NAME         | STATE   | PRIO | SLICE  | TOTAL | SCHED | DEM | BST\n");
   printf(ANSI_RESET);
-  printf("  ");
-  draw_line(68, '-');
-  printf("\n");
+  printf("  -----+--------------+---------+------+--------+-------+-------+-----+----\n");
   
   // Process rows
   int displayed = 0;
   for(int i = 0; i < PSTAT_NPROC && displayed < MAX_DISPLAY_PROC; i++) {
     if(ps->procs[i].inuse && ps->procs[i].state != PSTAT_UNUSED) {
-      char *state = "???";
-      char *color = ANSI_RESET;
+      char *state = "???   ";
+      int prio = ps->procs[i].priority;
+      int is_running = (ps->procs[i].state == PSTAT_RUNNING);
       
       if(ps->procs[i].state >= 0 && ps->procs[i].state <= 5) {
         state = state_names[ps->procs[i].state];
-        color = state_colors[ps->procs[i].state];
       }
       
-      // Highlight running process with *
-      if(ps->procs[i].state == PSTAT_RUNNING) {
-        printf(ANSI_BOLD ANSI_GREEN " *");
+      // Color based on state and priority
+      // Priority: RUNNING (green) > Q0/HIGH (yellow) > Q1/MED (white) > Q2/LOW (red)
+      char *row_color = ANSI_RESET;
+      
+      if(is_running) {
+        // Running process = Green (highest priority visual)
+        row_color = ANSI_BOLD ANSI_GREEN;
+      } else if(prio == 0) {
+        // Queue 0 (HIGH priority) = Yellow
+        row_color = ANSI_YELLOW;
+      } else if(prio == 1) {
+        // Queue 1 (MEDIUM priority) = White/Normal
+        row_color = ANSI_RESET;
+      } else if(prio == 2) {
+        // Queue 2 (LOW priority) = Red
+        row_color = ANSI_RED;
+      }
+      
+      // Start row with color
+      printf("%s", row_color);
+      
+      // Running indicator
+      if(is_running) {
+        printf(" *");
       } else {
         printf("  ");
       }
       
-      // PID
-      printf("%3d   ", ps->procs[i].pid);
+      // PID (4 chars right-aligned)
+      print_int_r(ps->procs[i].pid, 4);
+      printf(" | ");
       
-      // PPID
-      printf("%3d   ", ps->procs[i].ppid);
+      // NAME (12 chars left-aligned)
+      print_str_l(ps->procs[i].name, 12);
+      printf(" | ");
       
-      // Name (padded to 12 chars)
-      printf("%-12s ", ps->procs[i].name);
+      // STATE (7 chars left-aligned)
+      print_str_l(state, 7);
+      printf(" | ");
       
-      // State (with color)
-      printf("%s%s%s  ", color, state, ANSI_RESET);
+      // PRIO (4 chars center)
+      printf("  %d ", prio);
+      printf(" | ");
       
-      // Priority
-      printf("%d     ", ps->procs[i].priority);
-      
-      // Time slice progress
+      // SLICE bar
       draw_timeslice_bar(ps->procs[i].ticks_current, ps->procs[i].time_slice);
-      printf("  ");
+      printf(" | ");
       
-      // Total ticks
-      printf("%5d  ", ps->procs[i].ticks_total);
+      // TOTAL (5 chars right-aligned)
+      print_int_r(ps->procs[i].ticks_total, 5);
+      printf(" | ");
       
-      // Scheduled count
-      printf("%5d  ", ps->procs[i].num_scheduled);
+      // SCHED (5 chars right-aligned)
+      print_int_r(ps->procs[i].num_scheduled, 5);
+      printf(" | ");
       
-      // Demoted count
-      printf("%3d  ", ps->procs[i].num_demoted);
+      // DEM (3 chars right-aligned)
+      print_int_r(ps->procs[i].num_demoted, 3);
+      printf(" | ");
       
-      // Boosted count
-      printf("%3d", ps->procs[i].num_boosted);
+      // BST (3 chars right-aligned)
+      print_int_r(ps->procs[i].num_boosted, 3);
       
-      if(ps->procs[i].state == PSTAT_RUNNING) {
-        printf(ANSI_RESET);
-      }
+      // Reset color at end of row
+      printf(ANSI_RESET "\n");
       
-      printf("\n");
       displayed++;
     }
   }
@@ -279,14 +353,18 @@ void draw_process_table(struct pstat *ps)
 void draw_footer(int interval)
 {
   printf("+");
-  draw_line(72, '-');
+  draw_line(80, '-');
   printf("+\n");
-  printf("  Legend: " ANSI_GREEN "*" ANSI_RESET " = Running | ");
-  printf("PRIO: 0=HIGH, 1=MED, 2=LOW | ");
-  printf("Refresh: %d ticks\n", interval);
+  printf("  Legend: " ANSI_GREEN "*=RUN" ANSI_RESET " | ");
+  printf(ANSI_YELLOW "Q0=HIGH" ANSI_RESET " | ");
+  printf("Q1=MED | ");
+  printf(ANSI_RED "Q2=LOW" ANSI_RESET " | ");
+  printf("Refresh: ");
+  printf("%d", interval);
+  printf(" ticks\n");
   printf("  Press Ctrl+C to exit\n");
   printf("+");
-  draw_line(72, '-');
+  draw_line(80, '-');
   printf("+\n");
 }
 
