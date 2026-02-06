@@ -92,7 +92,16 @@ sys_uptime(void)
   return xticks;
 }
 
-// Get process information for MLFQ scheduler visualization
+// Get comprehensive process info for MLFQ Monitor TUI
+uint64
+sys_getpstat(void)
+{
+  uint64 addr;
+  argaddr(0, &addr);
+  return getpstat(addr);
+}
+
+// Legacy: Get process info (backward compatibility)
 uint64
 sys_getpinfo(void)
 {

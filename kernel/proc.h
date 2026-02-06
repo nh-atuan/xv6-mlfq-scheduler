@@ -110,4 +110,9 @@ struct proc {
   int ticks_used;              // Ticks used in current time slice
   int ticks_total;             // Total ticks used (for statistics)
   uint64 last_run_time;        // Last time the process was scheduled
+
+  // MLFQ tracking statistics (for monitor TUI)
+  int num_scheduled;           // Number of times this process was scheduled
+  int num_demoted;             // Number of times demoted to lower queue
+  int num_boosted;             // Number of times boosted by priority boost
 };
