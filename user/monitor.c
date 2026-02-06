@@ -1,6 +1,7 @@
 // monitor.c - MLFQ Scheduler Monitor TUI
 // Real-time visualization of Multi-Level Feedback Queue scheduler
-// Usage: monitor [refresh_interval] [iterations]
+// Usage: monitor [iterations] [refresh_interval]
+// Note: xv6 doesn't handle Ctrl+C. Wait for iterations to finish or use Ctrl+A X to exit QEMU.
 
 #include "kernel/types.h"
 #include "kernel/stat.h"
@@ -278,18 +279,18 @@ void draw_process_table(struct pstat *ps)
       }
       
       // Color based on state and priority
-      // Priority: RUNNING (green) > Q0/HIGH (yellow) > Q1/MED (white) > Q2/LOW (red)
+      // Priority: RUNNING (cyan) > Q0/HIGH (green) > Q1/MED (yellow) > Q2/LOW (red)
       char *row_color = ANSI_RESET;
       
       if(is_running) {
-        // Running process = Green (highest priority visual)
-        row_color = ANSI_BOLD ANSI_GREEN;
+        // Running process = Cyan (highest priority visual)
+        row_color = ANSI_BOLD ANSI_CYAN;
       } else if(prio == 0) {
-        // Queue 0 (HIGH priority) = Yellow
-        row_color = ANSI_YELLOW;
+        // Queue 0 (HIGH priority) = Green
+        row_color = ANSI_GREEN;
       } else if(prio == 1) {
-        // Queue 1 (MEDIUM priority) = White/Normal
-        row_color = ANSI_RESET;
+        // Queue 1 (MEDIUM priority) = Yellow
+        row_color = ANSI_YELLOW;
       } else if(prio == 2) {
         // Queue 2 (LOW priority) = Red
         row_color = ANSI_RED;
@@ -355,14 +356,14 @@ void draw_footer(int interval)
   printf("+");
   draw_line(80, '-');
   printf("+\n");
-  printf("  Legend: " ANSI_GREEN "*=RUN" ANSI_RESET " | ");
-  printf(ANSI_YELLOW "Q0=HIGH" ANSI_RESET " | ");
-  printf("Q1=MED | ");
+  printf("  Legend: " ANSI_CYAN "*=RUN" ANSI_RESET " | ");
+  printf(ANSI_GREEN "Q0=HIGH" ANSI_RESET " | ");
+  printf(ANSI_YELLOW "Q1=MED" ANSI_RESET " | ");
   printf(ANSI_RED "Q2=LOW" ANSI_RESET " | ");
   printf("Refresh: ");
   printf("%d", interval);
   printf(" ticks\n");
-  printf("  Press Ctrl+C to exit\n");
+  printf("  Wait for iterations to finish (xv6 doesn't support Ctrl+C)\n");
   printf("+");
   draw_line(80, '-');
   printf("+\n");
@@ -379,15 +380,15 @@ int main(int argc, char *argv[])
   int max_iter = 100;     // Default: run 100 iterations
   int use_ansi = 1;       // Try ANSI codes by default
   
-  // Parse arguments
+  // Parse arguments: monitor [iterations] [interval]
   if(argc > 1) {
-    interval = atoi(argv[1]);
-    if(interval < 1) interval = 1;
-    if(interval > 100) interval = 100;
+    max_iter = atoi(argv[1]);
+    if(max_iter < 1) max_iter = 1;
   }
   if(argc > 2) {
-    max_iter = atoi(argv[2]);
-    if(max_iter < 1) max_iter = 1;
+    interval = atoi(argv[2]);
+    if(interval < 1) interval = 1;
+    if(interval > 100) interval = 100;
   }
   if(argc > 3) {
     // Third argument: 0 = no ANSI, 1 = use ANSI
@@ -403,9 +404,10 @@ int main(int argc, char *argv[])
   
   printf(ANSI_CLEAR ANSI_HOME);
   printf("MLFQ Monitor starting...\n");
+  printf("  Iterations: %d\n", max_iter);
   printf("  Refresh interval: %d ticks\n", interval);
-  printf("  Max iterations: %d\n", max_iter);
   printf("  ANSI colors: %s\n", use_ansi ? "enabled" : "disabled");
+  printf("\nNote: xv6 doesn't support Ctrl+C. Wait for iterations or Ctrl+A X to exit QEMU.\n");
   printf("\nStarting in 2 seconds...\n");
   sleep(20);  // ~2 seconds
   
