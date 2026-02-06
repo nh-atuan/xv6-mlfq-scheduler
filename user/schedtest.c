@@ -35,6 +35,8 @@ int get_priority(int target_pid) {
 }
 
 // CPU-intensive work
+volatile long cpu_result;
+
 void cpu_work(int id, int iterations) {
   int pid = getpid();
   int start_prio = get_priority(pid);
@@ -42,13 +44,14 @@ void cpu_work(int id, int iterations) {
   
   for (int i = 0; i < iterations; i++) {
     volatile long result = 0;
-    // Heavy computation
-    for (long j = 0; j < 80000; j++) {
+    // Heavy computation - volatile prevents optimization
+    // 2M iterations should take multiple ticks
+    for (long j = 0; j < 2000000; j++) {
       result += j * j;
-      for (int k = 0; k < 50; k++) {
-        result ^= (result << 2) | (result >> 3);
-      }
+      result ^= (result << 3) | (result >> 5);
+      result += (result % 7) * (result % 13);
     }
+    cpu_result = result;
     int curr_prio = get_priority(pid);
     printf("[CPU-%d PID %d] Iter %d done (Priority: %d)\n", id, pid, i + 1, curr_prio);
   }
@@ -96,50 +99,44 @@ int main(int argc, char *argv[]) {
   printf("=============================================================\n\n");
 
   int start_time = uptime();
+  int status;
 
-  // Create CPU-bound processes (with delay to reduce race condition)
-  printf("Creating CPU-bound processes...\n");
+  // Phase 1: Create and run CPU-bound processes sequentially
+  printf("--- PHASE 1: CPU-bound processes (should demote) ---\n\n");
   for (int i = 0; i < NUM_CPU_PROCS; i++) {
     int pid = fork();
     if (pid == 0) {
       // Child - CPU-bound work
-      sleep(1);  // Small delay to let parent track PIDs
       cpu_work(i, cpu_iters);
       exit(0);
     }
-    sleep(1);  // Delay between forks
+    // Wait for this child to finish before starting next
+    wait(&status);
+    printf("\n");
   }
 
-  // Create I/O-bound processes (with delay)
-  printf("Creating I/O-bound processes...\n");
+  // Phase 2: Create and run I/O-bound processes sequentially
+  printf("--- PHASE 2: I/O-bound processes (should stay at priority 0) ---\n\n");
   for (int i = 0; i < NUM_IO_PROCS; i++) {
     int pid = fork();
     if (pid == 0) {
       // Child - I/O-bound work
-      sleep(1);  // Small delay to let parent track PIDs
       io_work(i, io_iters);
       exit(0);
     }
-    sleep(1);  // Delay between forks
-  }
-
-  printf("\nAll processes created. Monitoring...\n");
-  printf("-------------------------------------------------------------\n\n");
-
-  // Wait for all children
-  int status;
-  for (int i = 0; i < NUM_CPU_PROCS + NUM_IO_PROCS; i++) {
+    // Wait for this child to finish before starting next
     wait(&status);
+    printf("\n");
   }
 
   int end_time = uptime();
   
-  printf("\n=============================================================\n");
+  printf("=============================================================\n");
   printf("   TEST COMPLETED!\n");
   printf("   Total execution time: %d ticks\n", end_time - start_time);
   printf("=============================================================\n");
   printf("\nKey observations:\n");
-  printf("  - CPU-bound processes should show priority degradation\n");
+  printf("  - CPU-bound processes should show priority degradation (0->1->2)\n");
   printf("  - I/O-bound processes should maintain priority 0\n");
   printf("  - This demonstrates MLFQ's adaptive scheduling\n\n");
 
