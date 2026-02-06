@@ -195,6 +195,11 @@ UPROGS=\
 	$U/_setpri\
 	$U/_mlfqmon\
 	$U/_demo\
+	$U/_test_pstat\
+	$U/_simple_test\
+	$U/_monitor\
+	$U/_stress\
+	$U/_mlfq_test\
 
 
 

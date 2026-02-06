@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "pstat.h"
 #include "defs.h"
 
 struct cpu cpus[NCPU];
@@ -18,6 +19,7 @@ struct spinlock pid_lock;
 // MLFQ global state
 uint64 mlfq_ticks = 0;           // Global tick counter for priority boost
 struct spinlock mlfq_lock;       // Lock for MLFQ global state
+int last_boost_tick = 0;         // Tick when last priority boost occurred
 
 extern void forkret(void);
 static void freeproc(struct proc *p);
@@ -156,6 +158,9 @@ found:
   p->ticks_used = 0;
   p->ticks_total = 0;
   p->last_run_time = 0;
+  p->num_scheduled = 0;
+  p->num_demoted = 0;
+  p->num_boosted = 0;
 
   return p;
 }
@@ -185,6 +190,9 @@ freeproc(struct proc *p)
   p->ticks_used = 0;
   p->ticks_total = 0;
   p->last_run_time = 0;
+  p->num_scheduled = 0;
+  p->num_demoted = 0;
+  p->num_boosted = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -476,9 +484,18 @@ static void
 priority_boost(void)
 {
   struct proc *p;
+  
+  // Record when this boost happened
+  acquire(&tickslock);
+  last_boost_tick = ticks;
+  release(&tickslock);
+  
   for(p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
     if(p->state != UNUSED) {
+      if(p->priority > 0) {
+        p->num_boosted++;   // Track boost only if actually moved up
+      }
       p->priority = 0;
       p->ticks_used = 0;
     }
@@ -531,6 +548,7 @@ scheduler(void)
       // to release its lock and then reacquire it
       // before jumping back to us.
       selected->state = RUNNING;
+      selected->num_scheduled++;  // Track scheduling count
       c->proc = selected;
       swtch(&c->context, &selected->context);
 
@@ -585,6 +603,7 @@ yield(void)
     // Demote to lower priority queue (if not already at lowest)
     if(p->priority < NMLFQ - 1) {
       p->priority++;
+      p->num_demoted++;   // Track demotion count
     }
     p->ticks_used = 0;  // Reset ticks for new priority level
   }
@@ -859,4 +878,88 @@ setprocpriority(int pid, int priority)
   }
   
   return -1;  // Process not found
+}
+
+// Get comprehensive process statistics for MLFQ Monitor TUI
+// Uses kalloc() to avoid kernel stack overflow (~4KB struct on 4KB stack)
+int
+getpstat(uint64 addr)
+{
+  struct pstat *kstat;
+  struct proc *p;
+  struct proc *myp = myproc();
+  int i;
+
+  // Allocate kernel buffer on heap (struct pstat is ~4KB, too large for stack)
+  kstat = (struct pstat*)kalloc();
+  if(kstat == 0)
+    return -1;  // Out of memory
+
+  // Zero out the entire buffer
+  memset(kstat, 0, sizeof(struct pstat));
+
+  // Gather system-wide statistics
+  acquire(&tickslock);
+  kstat->sys.global_ticks = ticks;
+  kstat->sys.last_boost_tick = last_boost_tick;
+  release(&tickslock);
+
+  acquire(&mlfq_lock);
+  kstat->sys.next_boost_in = BOOST_INTERVAL - (mlfq_ticks % BOOST_INTERVAL);
+  release(&mlfq_lock);
+
+  // Gather per-process statistics
+  i = 0;
+  for(p = proc; p < &proc[NPROC]; p++, i++) {
+    acquire(&p->lock);
+
+    if(p->state != UNUSED) {
+      kstat->procs[i].inuse = 1;
+      kstat->procs[i].pid = p->pid;
+      kstat->procs[i].ppid = (p->parent) ? p->parent->pid : 0;
+      kstat->procs[i].state = p->state;
+      kstat->procs[i].priority = p->priority;
+      kstat->procs[i].ticks_current = p->ticks_used;
+      kstat->procs[i].ticks_total = p->ticks_total;
+      kstat->procs[i].num_scheduled = p->num_scheduled;
+      kstat->procs[i].num_demoted = p->num_demoted;
+      kstat->procs[i].num_boosted = p->num_boosted;
+
+      // Determine time slice based on current priority
+      if(p->priority == 0)
+        kstat->procs[i].time_slice = MLFQ_TICKS_0;
+      else if(p->priority == 1)
+        kstat->procs[i].time_slice = MLFQ_TICKS_1;
+      else
+        kstat->procs[i].time_slice = MLFQ_TICKS_2;
+
+      // Copy process name
+      memmove(kstat->procs[i].name, p->name, sizeof(p->name));
+
+      // Update system counters
+      kstat->sys.total_processes++;
+      if(p->priority >= 0 && p->priority < NMLFQ)
+        kstat->sys.queue_count[p->priority]++;
+
+      if(p->state == RUNNING)
+        kstat->sys.running_count++;
+      else if(p->state == SLEEPING)
+        kstat->sys.sleeping_count++;
+      else if(p->state == RUNNABLE)
+        kstat->sys.runnable_count++;
+    }
+
+    release(&p->lock);
+  }
+
+  // Copy entire struct to user space
+  if(copyout(myp->pagetable, addr,
+             (char*)kstat, sizeof(struct pstat)) < 0) {
+    kfree(kstat);  // Free on error path!
+    return -1;
+  }
+
+  // Free kernel buffer
+  kfree(kstat);
+  return 0;
 }

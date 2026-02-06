@@ -36,7 +36,8 @@ int main(int argc, char *argv[]) {
     int start = uptime();
     
     // Heavy computation - will use full time slice
-    compute_result = compute(100000);
+    // INCREASED workload to ensure timer interrupts are triggered
+    compute_result = compute(500000);  // Increased from 100K to 500K
     
     int end = uptime();
     printf("[PID %d] Iteration %d: computed, took %d ticks\n", 
